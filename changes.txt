@@ -1,0 +1,4 @@
+
+1. Updated the scheduler so that the PP algorithm does preemption based upon the time quantum. 
+2. Updated the scheduler to allow processes to arrive at the same time.
+3. Added a new algorithm. 4 – PR – Preemptive Random - Randomly select a process in the Ready queue to run next, accounting the time quantum parameter.

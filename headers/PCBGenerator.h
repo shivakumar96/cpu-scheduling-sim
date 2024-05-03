@@ -7,6 +7,8 @@
 #include "DList.h"
 #include "Clock.h"
 #include "PCB.h"
+#include "PCBStatus.h"
+#include <vector>
 
 class PCBGenerator{
 private:
@@ -19,8 +21,12 @@ private:
     bool *arrivals;
     bool *pids;
     int arr_size;
+
+    // A vector that maintains the state changes of all processes across the simulation.
+    std::vector<PCBStatus> *lcVector;
+
 public:
-    PCBGenerator(std::string filename, DList<PCB> *lst, Clock *c);
+    PCBGenerator(std::string filename, DList<PCB> *lst, Clock *c, std::vector<PCBStatus> *lifeCycleVector);
     ~PCBGenerator();
 
     //checks the current time to see if its time to add next process to ready queue

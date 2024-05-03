@@ -1,6 +1,9 @@
 #include "../headers/PCBGenerator.h"
+#include "../headers/PCBStatus.h"
+#include <vector>
 
-PCBGenerator::PCBGenerator(std::string filename, DList<PCB> *lst, Clock *c) {
+
+PCBGenerator::PCBGenerator(std::string filename, DList<PCB> *lst, Clock *c, std::vector<PCBStatus> *lifeCycleVector) {
     clock = c;
     ready_queue = lst;
     _finished = false;
@@ -8,6 +11,8 @@ PCBGenerator::PCBGenerator(std::string filename, DList<PCB> *lst, Clock *c) {
     arr_size = 25;
     arrivals = new bool[arr_size];
     pids = new bool[arr_size];
+    lcVector = lifeCycleVector;
+    
     for(int i = 0; i < arr_size; ++i) {
         arrivals[i] = false;
         pids[i] = false;
@@ -22,7 +27,20 @@ PCBGenerator::~PCBGenerator(){
 }
 
 void PCBGenerator::generate(){
-    if(!_finished && clock->gettime() >= nextPCB.arrival){
+    // we change the 'if' to a 'while'. This will help handling processes with the same
+    // arrival times. Now, as long as the processes have an arrival time lesser than the
+    // CPU time, they will be added to the ready queue.
+    while (!_finished && clock->gettime() >= nextPCB.arrival){
+        
+        // Capture the state transition.
+        PCBStatus status1(PROCESS_STATE::CREATED, clock->gettime(), nextPCB.pid);
+        lcVector->push_back(status1);
+
+        // Capture the state transition.
+        PCBStatus status2(PROCESS_STATE::IN_READY_QUEUE, clock->gettime(),nextPCB.pid);
+        lcVector->push_back(status2);
+
+        // Add it to the end of the ready queue.
         ready_queue->add_end(nextPCB);
         readnext();
     }
@@ -30,9 +48,17 @@ void PCBGenerator::generate(){
 
 void PCBGenerator::readnext(){
     bool error = false;
+    // Read until there are no more lines.
     if(!infile.eof()){
         std::stringstream ss;
         std::string line;
+
+        // An important container for the line info.
+        // vals[0] = PID
+        // vals[1] = Arrival time
+        // vals[2] = Burst time
+        // vals[3] = Priority
+        // vals[4] = IO burst time
         float vals[5];
 
         while(!infile.fail()){
@@ -47,7 +73,8 @@ void PCBGenerator::readnext(){
 
         ss << line;
         int count = 0;
-        while(count < 4 && ss >> vals[count]){
+        // change from 4 to 5 to read the extra column,
+        while(count < 5 && ss >> vals[count]){
             count++;
         };
         while(vals[0] >= arr_size || vals[1] >= arr_size) doublearrays();
@@ -59,15 +86,20 @@ void PCBGenerator::readnext(){
         if(vals[2] <= 0 && !error) if(error = true) std::cout << "CPU Burst time must be greater than 0. Exiting now." << std::endl;
         if(vals[1] < last_arr && !error) if(error = true) std::cout << "File needs to be sorted by arrival time. Exiting now." << std::endl;
         if(pids[int(vals[0])]) if(error = true) std::cout << "Can't have duplicate PIDs. Exiting now." << std::endl;
-        if(arrivals[int(vals[1])]) if(error = true) std::cout << "Can't have duplicate arrival times. Exiting now." << std::endl;
+        // we now want the code to handle duplicate arrival times.
+        // if(arrivals[int(vals[1])]) if(error = true) std::cout << "Can't have duplicate arrival times. Exiting now." << std::endl;
 
         if(error) return(throw 1);
 
         //no error with data, continue
         arrivals[int(vals[1])] = true;
         pids[int(vals[0])] = true;
-        nextPCB = PCB(vals[0], vals[1], vals[2], vals[3]);
+
+        // create the PCB object.
+        nextPCB = PCB(vals[0], vals[1], vals[2], vals[3], vals[4]);
+
     }
+
     else _finished = true;
 }
 
